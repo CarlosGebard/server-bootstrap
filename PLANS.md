@@ -6,6 +6,7 @@ Agregar un workflow manual para diagnosticar la autenticacion OIDC entre GitHub 
 
 - crear un workflow de debug OIDC para Infisical
 - parametrizar la ruta base de secretos en los workflows operativos y de debug
+- dividir el debug en etapas legibles para aislar fallas entre GitHub OIDC, JWT, login Infisical y fetch de secretos
 - documentar el uso y los puntos de validacion
 
 ## Assumptions
@@ -18,10 +19,11 @@ Agregar un workflow manual para diagnosticar la autenticacion OIDC entre GitHub 
 
 1. Crear `.github/workflows/debug-infisical-oidc.yml`.
 2. Validar variables requeridas y solicitar el JWT OIDC desde GitHub.
-3. Decodificar y mostrar claims/metadatos seguros del JWT.
-4. Probar login directo contra Infisical y luego ejecutar `Infisical/secrets-action`.
-5. Leer la ruta de secretos desde GitHub Variables y aplicarla en todos los workflows.
-6. Documentar uso y troubleshooting.
+3. Imprimir metadatos seguros de la respuesta OIDC y validar estructura minima del JWT.
+4. Decodificar y mostrar claims/metadatos seguros del JWT.
+5. Probar login directo contra Infisical y luego ejecutar `Infisical/secrets-action`.
+6. Leer la ruta de secretos desde GitHub Variables y aplicarla en todos los workflows.
+7. Documentar uso y troubleshooting.
 
 ## Validation
 

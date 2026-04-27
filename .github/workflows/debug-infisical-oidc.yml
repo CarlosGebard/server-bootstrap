@@ -37,6 +37,8 @@ jobs:
           INFISICAL_PROJECT_SLUG: ${{ vars.INFISICAL_PROJECT_SLUG }}
           INFISICAL_ENV_SLUG: ${{ vars.INFISICAL_ENV_SLUG }}
           INFISICAL_SECRET_PATH: ${{ vars.INFISICAL_SECRET_PATH }}
+          INPUT_AUDIENCE: ${{ inputs.oidc_audience }}
+          INPUT_DOMAIN: ${{ inputs.infisical_domain }}
         run: |
           set -euo pipefail
 
@@ -44,12 +46,22 @@ jobs:
           [[ -n "${INFISICAL_PROJECT_SLUG}" ]] || { echo "Missing INFISICAL_PROJECT_SLUG"; exit 1; }
           [[ -n "${INFISICAL_ENV_SLUG}" ]] || { echo "Missing INFISICAL_ENV_SLUG"; exit 1; }
           [[ -n "${INFISICAL_SECRET_PATH}" ]] || { echo "Missing INFISICAL_SECRET_PATH"; exit 1; }
+          [[ "${INFISICAL_SECRET_PATH}" = /* ]] || { echo "INFISICAL_SECRET_PATH must start with /"; exit 1; }
+
+          echo "OIDC audience input: ${INPUT_AUDIENCE:-<github-default>}"
+          echo "Infisical domain: ${INPUT_DOMAIN}"
+          echo "Infisical project: ${INFISICAL_PROJECT_SLUG}"
+          echo "Infisical env: ${INFISICAL_ENV_SLUG}"
+          echo "Infisical secret path: ${INFISICAL_SECRET_PATH}"
 
       - name: Request GitHub OIDC token
         env:
           INPUT_AUDIENCE: ${{ inputs.oidc_audience }}
         run: |
           set -euo pipefail
+
+          [[ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]] || { echo "Missing ACTIONS_ID_TOKEN_REQUEST_URL. Check id-token: write permissions."; exit 1; }
+          [[ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]] || { echo "Missing ACTIONS_ID_TOKEN_REQUEST_TOKEN. Check id-token: write permissions."; exit 1; }
 
           TOKEN_URL="$(python3 - <<'PY'
           import os
@@ -66,22 +78,86 @@ jobs:
           PY
           )"
 
-          RESPONSE="$(curl -fsSL \
-            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${TOKEN_URL}")"
+          RESPONSE_FILE="$(mktemp)"
+          HTTP_STATUS="$(
+            curl -sS -o "${RESPONSE_FILE}" -w '%{http_code}' \
+              -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+              "${TOKEN_URL}"
+          )"
 
-          OIDC_TOKEN="$(python3 - <<'PY' <<<"${RESPONSE}"
+          python3 - <<'PY' "${RESPONSE_FILE}" "${HTTP_STATUS}" "${TOKEN_URL}"
           import json
+          import pathlib
           import sys
 
-          data = json.load(sys.stdin)
-          print(data["value"])
+          response_path = pathlib.Path(sys.argv[1])
+          http_status = sys.argv[2]
+          token_url = sys.argv[3]
+          raw = response_path.read_text()
+
+          try:
+              payload = json.loads(raw) if raw else {}
+          except json.JSONDecodeError:
+              print(json.dumps({
+                  "http_status": http_status,
+                  "has_value": False,
+                  "token_length": 0,
+                  "request_url_preview": token_url[:120],
+                  "raw_preview": raw[:300],
+              }, indent=2, sort_keys=True))
+              raise SystemExit("GitHub OIDC endpoint did not return JSON")
+
+          token = payload.get("value", "")
+          print(json.dumps({
+              "http_status": http_status,
+              "has_value": bool(token),
+              "token_length": len(token),
+              "request_url_preview": token_url[:120],
+          }, indent=2, sort_keys=True))
+
+          if not http_status.startswith("2"):
+              raise SystemExit("GitHub OIDC request failed")
+          if not token:
+              raise SystemExit("GitHub OIDC response did not contain a token in `value`")
+
+          with open("oidc_token.txt", "w", encoding="utf-8") as handle:
+              handle.write(token)
           PY
-          )"
+
+          OIDC_TOKEN="$(cat oidc_token.txt)"
+          rm -f oidc_token.txt
 
           echo "::add-mask::${OIDC_TOKEN}"
           printf 'OIDC_TOKEN=%s\n' "${OIDC_TOKEN}" >> "${GITHUB_ENV}"
           printf 'EFFECTIVE_OIDC_AUDIENCE=%s\n' "${INPUT_AUDIENCE}" >> "${GITHUB_ENV}"
+
+      - name: Validate JWT shape
+        env:
+          OIDC_TOKEN: ${{ env.OIDC_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          [[ -n "${OIDC_TOKEN:-}" ]] || { echo "OIDC_TOKEN is empty"; exit 1; }
+
+          python3 - <<'PY'
+          import os
+
+          token = os.environ["OIDC_TOKEN"].strip()
+          parts = token.split(".")
+
+          summary = {
+              "token_present": bool(token),
+              "dot_count": token.count("."),
+              "part_count": len(parts),
+          }
+
+          print(summary)
+
+          if len(parts) != 3:
+              raise SystemExit("OIDC_TOKEN is not a valid JWT with 3 segments")
+          if any(not part for part in parts):
+              raise SystemExit("OIDC_TOKEN has an empty JWT segment")
+          PY
 
       - name: Decode OIDC token metadata
         env:
@@ -194,14 +270,35 @@ jobs:
           domain: "${{ inputs.infisical_domain }}"
           secret-path: "${{ vars.INFISICAL_SECRET_PATH }}"
 
+      - name: Summarize fetched secret availability
+        env:
+          PROD_HOST: ${{ env.PROD_HOST }}
+          PROD_SSH_PRIVATE_KEY: ${{ env.PROD_SSH_PRIVATE_KEY }}
+          INFISICAL_SECRET_PATH: ${{ vars.INFISICAL_SECRET_PATH }}
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+
+          summary = {
+              "secret_path": os.environ["INFISICAL_SECRET_PATH"],
+              "has_prod_host": bool(os.environ.get("PROD_HOST")),
+              "has_prod_ssh_private_key": bool(os.environ.get("PROD_SSH_PRIVATE_KEY")),
+          }
+          print(json.dumps(summary, indent=2, sort_keys=True))
+          PY
+
       - name: Assert expected secrets are available
         env:
           PROD_HOST: ${{ env.PROD_HOST }}
           PROD_SSH_PRIVATE_KEY: ${{ env.PROD_SSH_PRIVATE_KEY }}
+          INFISICAL_SECRET_PATH: ${{ vars.INFISICAL_SECRET_PATH }}
         run: |
           set -euo pipefail
 
-          [[ -n "${PROD_HOST}" ]] || { echo "Missing PROD_HOST after Infisical fetch"; exit 1; }
-          [[ -n "${PROD_SSH_PRIVATE_KEY}" ]] || { echo "Missing PROD_SSH_PRIVATE_KEY after Infisical fetch"; exit 1; }
+          [[ -n "${PROD_HOST}" ]] || { echo "Missing PROD_HOST after Infisical fetch from ${INFISICAL_SECRET_PATH}"; exit 1; }
+          [[ -n "${PROD_SSH_PRIVATE_KEY}" ]] || { echo "Missing PROD_SSH_PRIVATE_KEY after Infisical fetch from ${INFISICAL_SECRET_PATH}"; exit 1; }
 
           echo "Infisical OIDC debug completed successfully."
