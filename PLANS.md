@@ -1,33 +1,32 @@
 ## Goal
 
-Simplificar el workflow manual de debug OIDC de Infisical para que use el action oficial con la menor cantidad posible de pasos y configuracion fija.
+Permitir que el workflow de bootstrap use un usuario SSH inicial configurable, para soportar proveedores como Oracle Cloud que exigen `ubuntu` en lugar de `root`.
 
 ## Scope
 
-- reemplazar el workflow de debug detallado por uno minimo
-- seguir usando GitHub Variables para la configuracion de Infisical
-- ajustar la documentacion del repo al nuevo flujo
+- hacer configurable el usuario SSH de `bootstrap-host.yml`
+- conservar `root` como valor por defecto para no romper flujos existentes
+- documentar la nueva variable operativa en el runbook y el inventario de secretos
 
 ## Assumptions
 
-- `INFISICAL_IDENTITY_ID`, `INFISICAL_PROJECT_SLUG`, `INFISICAL_ENV_SLUG` y `INFISICAL_SECRET_PATH` existen como GitHub Variables
-- el objetivo del workflow es confirmar que el fetch por OIDC funciona, no inspeccionar claims JWT
-- validar `PROD_HOST` y `PROD_SSH_PRIVATE_KEY` sigue siendo suficiente para este repo
+- el usuario inicial alternativo tiene permisos `sudo` sin fricción para que `become: true` siga funcionando
+- `apply-runtime.yml` no necesita este ajuste porque ya entra con el usuario admin post-bootstrap
+- el secreto/variable seguirá llegando desde Infisical como `PROD_SSH_*`
 
 ## Steps
 
-1. Reemplazar `.github/workflows/debug-infisical-oidc.yml` por una version minima basada en `Infisical/secrets-action`.
-2. Mantener una validacion previa de variables requeridas.
-3. Ejecutar el fetch OIDC y dejar un check final de secretos esperados.
-4. Actualizar `docs/secrets-and-variables.md`, `.github/workflows/README.md` y `docs/runbooks/bootstrap.md`.
+1. Ajustar `.github/workflows/bootstrap-host.yml` para leer `PROD_SSH_USER` y usar `root` por defecto.
+2. Documentar `PROD_SSH_USER` en `docs/secrets-and-variables.md` y `docs/runbooks/bootstrap.md`.
+3. Revisar diff y validaciones locales disponibles.
 
 ## Validation
 
-- revisar sintaxis YAML del workflow
-- revisar consistencia entre workflow y documentacion
 - inspeccionar diff final
+- ejecutar `git diff --check`
+- ejecutar checks locales adicionales si no requieren dependencias ausentes
 
 ## Risks
 
-- perder capacidad de diagnostico fino sobre audience o claims del JWT
-- asumir que un fallo del action oficial alcanza como senal suficiente para troubleshooting inicial
+- asumir `sudo` disponible para el usuario inicial puede fallar en imágenes endurecidas
+- si `PROD_SSH_USER` se configura mal, el error cambia de forma pero sigue bloqueando el acceso SSH

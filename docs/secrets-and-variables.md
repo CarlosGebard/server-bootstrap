@@ -16,6 +16,7 @@
 - `PROD_HOST`
 - `PROD_SSH_PRIVATE_KEY`
 - `PROD_SSH_PORT` opcional
+- `PROD_SSH_USER` opcional para bootstrap inicial, por defecto `root`
 - `PROD_SSH_KNOWN_HOSTS` opcional
 - `TAILSCALE_AUTH_KEY`
 - `TAILSCALE_HOSTNAME` opcional

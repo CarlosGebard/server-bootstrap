@@ -2,7 +2,7 @@
 
 ## Flujo
 
-1. ejecutar `bootstrap-host.yml` con acceso inicial `root`
+1. ejecutar `bootstrap-host.yml` con acceso inicial `root` o con `PROD_SSH_USER` si el proveedor exige otro usuario base como `ubuntu`
 2. ejecutar `apply-runtime.yml` con usuario admin
 3. entregar el host al repo de deploy correspondiente
 

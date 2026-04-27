@@ -33,6 +33,11 @@ No contiene:
    - acceso como usuario admin
    - Docker, Tailscale, Alloy package y paths base
 
+## Configuracion base
+
+- el usuario admin que crea el bootstrap se define en `ansible/inventories/production/group_vars/base.yml` bajo `host.admin_user`
+- el usuario SSH inicial del workflow `bootstrap-host.yml` puede venir desde `PROD_SSH_USER`; si no se define, el workflow usa `root`
+
 ## Validación local
 
 ```bash
