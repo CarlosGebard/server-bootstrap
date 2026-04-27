@@ -1,0 +1,19 @@
+---
+- name: Apply generic host baseline
+  hosts: all
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Load inventory group vars fragments
+      ansible.builtin.include_vars:
+        dir: "{{ playbook_dir }}/../inventories/production/group_vars"
+        extensions:
+          - yml
+
+  roles:
+    - role: runtime/docker
+    - role: runtime/base_volumes
+    - role: runtime/tailscale
+    - role: runtime/alloy_install
+    - role: runtime/base_validation

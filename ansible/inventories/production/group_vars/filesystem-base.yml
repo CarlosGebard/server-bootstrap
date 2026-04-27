@@ -1,0 +1,15 @@
+srv_root: /srv
+srv_apps_root: "{{ srv_root }}/apps"
+srv_data_root: "{{ srv_root }}/data"
+srv_logs_root: "{{ srv_root }}/logs"
+srv_secrets_root: "{{ srv_root }}/secrets"
+srv_backups_root: "{{ srv_root }}/backups"
+
+filesystem_base_dirs:
+  - { path: "{{ srv_root }}", mode: "0755" }
+  - { path: "{{ srv_apps_root }}", mode: "0755" }
+  - { path: "{{ srv_data_root }}", mode: "0750" }
+  - { path: "{{ srv_logs_root }}", mode: "0750" }
+  - { path: "{{ srv_secrets_root }}", mode: "0750" }
+  - { path: "{{ srv_secrets_root }}/runtime", mode: "0750" }
+  - { path: "{{ srv_backups_root }}", mode: "0750" }

@@ -1,0 +1,16 @@
+# Secrets y Variables
+
+## GitHub Variables
+
+- `INFISICAL_IDENTITY_ID`
+- `INFISICAL_PROJECT_SLUG`
+- `INFISICAL_ENV_SLUG`
+
+## Infisical
+
+- `PROD_HOST`
+- `PROD_SSH_PRIVATE_KEY`
+- `PROD_SSH_PORT` opcional
+- `PROD_SSH_KNOWN_HOSTS` opcional
+- `TAILSCALE_AUTH_KEY`
+- `TAILSCALE_HOSTNAME` opcional

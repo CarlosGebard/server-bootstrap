@@ -1,0 +1,21 @@
+docker_apt_arch_map:
+  x86_64: amd64
+  aarch64: arm64
+
+grafana_apt_arch_map:
+  x86_64: amd64
+  aarch64: arm64
+
+tailscale:
+  enabled: true
+  auth_key: "{{ lookup('ansible.builtin.env', 'TAILSCALE_AUTH_KEY') | default('', true) }}"
+  advertise_tags:
+    - tag:vps
+  enable_ssh: false
+  hostname: "{{ lookup('ansible.builtin.env', 'TAILSCALE_HOSTNAME') | default('server-bootstrap-host', true) }}"
+  args_extra: ""
+  track: stable
+
+alloy:
+  http_listen_addr: 127.0.0.1:12345
+  storage_path: /var/lib/alloy/data
