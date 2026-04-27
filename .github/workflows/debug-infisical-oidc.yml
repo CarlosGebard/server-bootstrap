@@ -2,23 +2,14 @@ name: Debug Infisical OIDC
 
 on:
   workflow_dispatch:
-    inputs:
-      oidc_audience:
-        description: Optional audience override for the GitHub OIDC token
-        required: false
-        default: ""
-      infisical_domain:
-        description: Infisical base URL
-        required: true
-        default: "https://app.infisical.com"
 
 concurrency:
   group: debug-infisical-oidc
   cancel-in-progress: false
 
 jobs:
-  debug:
-    name: Inspect GitHub OIDC claims and test Infisical login
+  test:
+    name: Pull Infisical secrets via OIDC
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
@@ -31,14 +22,15 @@ jobs:
         shell: bash
 
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
       - name: Validate required configuration
         env:
           INFISICAL_IDENTITY_ID: ${{ vars.INFISICAL_IDENTITY_ID }}
           INFISICAL_PROJECT_SLUG: ${{ vars.INFISICAL_PROJECT_SLUG }}
           INFISICAL_ENV_SLUG: ${{ vars.INFISICAL_ENV_SLUG }}
           INFISICAL_SECRET_PATH: ${{ vars.INFISICAL_SECRET_PATH }}
-          INPUT_AUDIENCE: ${{ inputs.oidc_audience }}
-          INPUT_DOMAIN: ${{ inputs.infisical_domain }}
         run: |
           set -euo pipefail
 
@@ -48,247 +40,22 @@ jobs:
           [[ -n "${INFISICAL_SECRET_PATH}" ]] || { echo "Missing INFISICAL_SECRET_PATH"; exit 1; }
           [[ "${INFISICAL_SECRET_PATH}" = /* ]] || { echo "INFISICAL_SECRET_PATH must start with /"; exit 1; }
 
-          echo "OIDC audience input: ${INPUT_AUDIENCE:-<github-default>}"
-          echo "Infisical domain: ${INPUT_DOMAIN}"
-          echo "Infisical project: ${INFISICAL_PROJECT_SLUG}"
-          echo "Infisical env: ${INFISICAL_ENV_SLUG}"
-          echo "Infisical secret path: ${INFISICAL_SECRET_PATH}"
+          echo "Identity ID configured"
+          echo "Project slug: ${INFISICAL_PROJECT_SLUG}"
+          echo "Environment slug: ${INFISICAL_ENV_SLUG}"
+          echo "Secret path: ${INFISICAL_SECRET_PATH}"
 
-      - name: Request GitHub OIDC token
-        env:
-          INPUT_AUDIENCE: ${{ inputs.oidc_audience }}
-        run: |
-          set -euo pipefail
-
-          [[ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]] || { echo "Missing ACTIONS_ID_TOKEN_REQUEST_URL. Check id-token: write permissions."; exit 1; }
-          [[ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]] || { echo "Missing ACTIONS_ID_TOKEN_REQUEST_TOKEN. Check id-token: write permissions."; exit 1; }
-
-          TOKEN_URL="$(python3 - <<'PY'
-          import os
-          import urllib.parse
-
-          base = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
-          aud = os.environ.get("INPUT_AUDIENCE", "").strip()
-
-          if aud:
-              sep = "&" if "?" in base else "?"
-              print(f"{base}{sep}audience={urllib.parse.quote(aud, safe='')}")
-          else:
-              print(base)
-          PY
-          )"
-
-          RESPONSE_FILE="$(mktemp)"
-          HTTP_STATUS="$(
-            curl -sS -o "${RESPONSE_FILE}" -w '%{http_code}' \
-              -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-              "${TOKEN_URL}"
-          )"
-
-          python3 - <<'PY' "${RESPONSE_FILE}" "${HTTP_STATUS}" "${TOKEN_URL}"
-          import json
-          import pathlib
-          import sys
-
-          response_path = pathlib.Path(sys.argv[1])
-          http_status = sys.argv[2]
-          token_url = sys.argv[3]
-          raw = response_path.read_text()
-
-          try:
-              payload = json.loads(raw) if raw else {}
-          except json.JSONDecodeError:
-              print(json.dumps({
-                  "http_status": http_status,
-                  "has_value": False,
-                  "token_length": 0,
-                  "request_url_preview": token_url[:120],
-                  "raw_preview": raw[:300],
-              }, indent=2, sort_keys=True))
-              raise SystemExit("GitHub OIDC endpoint did not return JSON")
-
-          token = payload.get("value", "")
-          print(json.dumps({
-              "http_status": http_status,
-              "has_value": bool(token),
-              "token_length": len(token),
-              "request_url_preview": token_url[:120],
-          }, indent=2, sort_keys=True))
-
-          if not http_status.startswith("2"):
-              raise SystemExit("GitHub OIDC request failed")
-          if not token:
-              raise SystemExit("GitHub OIDC response did not contain a token in `value`")
-
-          with open("oidc_token.txt", "w", encoding="utf-8") as handle:
-              handle.write(token)
-          PY
-
-          OIDC_TOKEN="$(cat oidc_token.txt)"
-          rm -f oidc_token.txt
-
-          echo "::add-mask::${OIDC_TOKEN}"
-          printf 'OIDC_TOKEN=%s\n' "${OIDC_TOKEN}" >> "${GITHUB_ENV}"
-          printf 'EFFECTIVE_OIDC_AUDIENCE=%s\n' "${INPUT_AUDIENCE}" >> "${GITHUB_ENV}"
-
-      - name: Validate JWT shape
-        env:
-          OIDC_TOKEN: ${{ env.OIDC_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          [[ -n "${OIDC_TOKEN:-}" ]] || { echo "OIDC_TOKEN is empty"; exit 1; }
-
-          python3 - <<'PY'
-          import os
-
-          token = os.environ["OIDC_TOKEN"].strip()
-          parts = token.split(".")
-
-          summary = {
-              "token_present": bool(token),
-              "dot_count": token.count("."),
-              "part_count": len(parts),
-          }
-
-          print(summary)
-
-          if len(parts) != 3:
-              raise SystemExit("OIDC_TOKEN is not a valid JWT with 3 segments")
-          if any(not part for part in parts):
-              raise SystemExit("OIDC_TOKEN has an empty JWT segment")
-          PY
-
-      - name: Decode OIDC token metadata
-        env:
-          OIDC_TOKEN: ${{ env.OIDC_TOKEN }}
-          EFFECTIVE_OIDC_AUDIENCE: ${{ env.EFFECTIVE_OIDC_AUDIENCE }}
-        run: |
-          set -euo pipefail
-
-          python3 - <<'PY'
-          import base64
-          import json
-          import os
-
-          token = os.environ["OIDC_TOKEN"]
-          audience = os.environ.get("EFFECTIVE_OIDC_AUDIENCE", "")
-          header_b64, payload_b64, _ = token.split(".")
-
-          def decode(part):
-              padding = "=" * (-len(part) % 4)
-              return json.loads(base64.urlsafe_b64decode(part + padding))
-
-          header = decode(header_b64)
-          payload = decode(payload_b64)
-
-          summary = {
-              "requested_audience": audience or "<github-default>",
-              "header": {
-                  "alg": header.get("alg"),
-                  "kid": header.get("kid"),
-                  "typ": header.get("typ"),
-              },
-              "claims": {
-                  "iss": payload.get("iss"),
-                  "sub": payload.get("sub"),
-                  "aud": payload.get("aud"),
-                  "repository": payload.get("repository"),
-                  "repository_owner": payload.get("repository_owner"),
-                  "ref": payload.get("ref"),
-                  "sha": payload.get("sha"),
-                  "workflow": payload.get("workflow"),
-                  "job_workflow_ref": payload.get("job_workflow_ref"),
-                  "environment": payload.get("environment"),
-                  "actor": payload.get("actor"),
-                  "runner_environment": payload.get("runner_environment"),
-                  "exp": payload.get("exp"),
-                  "nbf": payload.get("nbf"),
-                  "iat": payload.get("iat"),
-              },
-          }
-
-          print(json.dumps(summary, indent=2, sort_keys=True))
-          PY
-
-      - name: Test OIDC login against Infisical
-        env:
-          INFISICAL_IDENTITY_ID: ${{ vars.INFISICAL_IDENTITY_ID }}
-          INFISICAL_DOMAIN: ${{ inputs.infisical_domain }}
-          OIDC_TOKEN: ${{ env.OIDC_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          RESPONSE_FILE="$(mktemp)"
-          HTTP_STATUS="$(
-            curl -sS -o "${RESPONSE_FILE}" -w '%{http_code}' \
-              -X POST \
-              -H 'Content-Type: application/x-www-form-urlencoded' \
-              --data-urlencode "identityId=${INFISICAL_IDENTITY_ID}" \
-              --data-urlencode "jwt=${OIDC_TOKEN}" \
-              "${INFISICAL_DOMAIN%/}/api/v1/auth/oidc-auth/login"
-          )"
-
-          python3 - <<'PY' "${RESPONSE_FILE}" "${HTTP_STATUS}"
-          import json
-          import pathlib
-          import sys
-
-          response_path = pathlib.Path(sys.argv[1])
-          http_status = sys.argv[2]
-          raw = response_path.read_text()
-
-          try:
-              payload = json.loads(raw) if raw else {}
-          except json.JSONDecodeError:
-              payload = {"raw": raw[:500]}
-
-          sanitized = {
-              "http_status": http_status,
-              "success": payload.get("success"),
-              "message": payload.get("message"),
-              "ttl": payload.get("data", {}).get("accessTokenTTL"),
-              "identity_id": payload.get("data", {}).get("identityId"),
-          }
-
-          if http_status.startswith("2") and payload.get("success") is True:
-              print(json.dumps(sanitized, indent=2, sort_keys=True))
-          else:
-              error = payload.get("error") or payload.get("message") or payload.get("raw") or "Unknown Infisical OIDC login error"
-              print(json.dumps({**sanitized, "error": error}, indent=2, sort_keys=True))
-              raise SystemExit(1)
-          PY
-
-      - name: Pull secrets with official Infisical action
+      - name: Pull secrets from Infisical via OIDC
         uses: Infisical/secrets-action@v1.0.10
         with:
           method: "oidc"
           identity-id: "${{ vars.INFISICAL_IDENTITY_ID }}"
-          oidc-audience: "${{ inputs.oidc_audience }}"
           project-slug: "${{ vars.INFISICAL_PROJECT_SLUG }}"
           env-slug: "${{ vars.INFISICAL_ENV_SLUG }}"
-          domain: "${{ inputs.infisical_domain }}"
           secret-path: "${{ vars.INFISICAL_SECRET_PATH }}"
 
-      - name: Summarize fetched secret availability
-        env:
-          PROD_HOST: ${{ env.PROD_HOST }}
-          PROD_SSH_PRIVATE_KEY: ${{ env.PROD_SSH_PRIVATE_KEY }}
-          INFISICAL_SECRET_PATH: ${{ vars.INFISICAL_SECRET_PATH }}
-        run: |
-          set -euo pipefail
-
-          python3 - <<'PY'
-          import json
-          import os
-
-          summary = {
-              "secret_path": os.environ["INFISICAL_SECRET_PATH"],
-              "has_prod_host": bool(os.environ.get("PROD_HOST")),
-              "has_prod_ssh_private_key": bool(os.environ.get("PROD_SSH_PRIVATE_KEY")),
-          }
-          print(json.dumps(summary, indent=2, sort_keys=True))
-          PY
+      - name: Verify action ran
+        run: echo "Infisical action finished"
 
       - name: Assert expected secrets are available
         env:

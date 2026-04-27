@@ -10,8 +10,6 @@
 ## GitHub Workflow Inputs
 
 - `git_ref` para workflows operativos
-- `oidc_audience` opcional para el workflow `debug-infisical-oidc.yml`
-- `infisical_domain` opcional para el workflow `debug-infisical-oidc.yml`
 
 ## Infisical
 

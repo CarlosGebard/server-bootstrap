@@ -1,38 +1,33 @@
 ## Goal
 
-Agregar un workflow manual para diagnosticar la autenticacion OIDC entre GitHub Actions e Infisical sin exponer JWTs ni secretos en logs.
+Simplificar el workflow manual de debug OIDC de Infisical para que use el action oficial con la menor cantidad posible de pasos y configuracion fija.
 
 ## Scope
 
-- crear un workflow de debug OIDC para Infisical
-- parametrizar la ruta base de secretos en los workflows operativos y de debug
-- dividir el debug en etapas legibles para aislar fallas entre GitHub OIDC, JWT, login Infisical y fetch de secretos
-- documentar el uso y los puntos de validacion
+- reemplazar el workflow de debug detallado por uno minimo
+- seguir usando GitHub Variables para la configuracion de Infisical
+- ajustar la documentacion del repo al nuevo flujo
 
 ## Assumptions
 
-- el endpoint OIDC login de Infisical es `/api/v1/auth/oidc-auth/login`
 - `INFISICAL_IDENTITY_ID`, `INFISICAL_PROJECT_SLUG`, `INFISICAL_ENV_SLUG` y `INFISICAL_SECRET_PATH` existen como GitHub Variables
-- el proyecto usa Infisical Cloud salvo que se indique un dominio distinto al ejecutar el workflow
+- el objetivo del workflow es confirmar que el fetch por OIDC funciona, no inspeccionar claims JWT
+- validar `PROD_HOST` y `PROD_SSH_PRIVATE_KEY` sigue siendo suficiente para este repo
 
 ## Steps
 
-1. Crear `.github/workflows/debug-infisical-oidc.yml`.
-2. Validar variables requeridas y solicitar el JWT OIDC desde GitHub.
-3. Imprimir metadatos seguros de la respuesta OIDC y validar estructura minima del JWT.
-4. Decodificar y mostrar claims/metadatos seguros del JWT.
-5. Probar login directo contra Infisical y luego ejecutar `Infisical/secrets-action`.
-6. Leer la ruta de secretos desde GitHub Variables y aplicarla en todos los workflows.
-7. Documentar uso y troubleshooting.
+1. Reemplazar `.github/workflows/debug-infisical-oidc.yml` por una version minima basada en `Infisical/secrets-action`.
+2. Mantener una validacion previa de variables requeridas.
+3. Ejecutar el fetch OIDC y dejar un check final de secretos esperados.
+4. Actualizar `docs/secrets-and-variables.md`, `.github/workflows/README.md` y `docs/runbooks/bootstrap.md`.
 
 ## Validation
 
-- revisar sintaxis YAML del workflow nuevo
-- revisar que la documentacion refleje inputs, variables y criterios de diagnostico
+- revisar sintaxis YAML del workflow
+- revisar consistencia entre workflow y documentacion
 - inspeccionar diff final
 
 ## Risks
 
-- imprimir accidentalmente el JWT completo o tokens de acceso
-- asumir un dominio de Infisical incorrecto en entornos self-hosted
-- considerar valido el OIDC aunque el workflow tenga acceso a identidad pero no a los secretos esperados
+- perder capacidad de diagnostico fino sobre audience o claims del JWT
+- asumir que un fallo del action oficial alcanza como senal suficiente para troubleshooting inicial
