@@ -15,3 +15,8 @@
   - Tailscale
   - Alloy package y servicio
   - paths base `/srv`, `/srv/apps`, `/srv/data`, `/srv/logs`, `/srv/secrets`, `/srv/backups`
+
+## Runbooks
+
+- [Bootstrap](runbooks/bootstrap.md)
+- [SSH recovery](runbooks/ssh-recovery.md)

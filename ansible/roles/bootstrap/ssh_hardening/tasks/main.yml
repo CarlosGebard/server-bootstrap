@@ -1,4 +1,33 @@
 ---
+- name: Ensure SSH systemd override directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/system/ssh.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install SSH auto-recovery systemd override
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/ssh.service.d/10-auto-recovery.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      StartLimitIntervalSec=60
+      StartLimitBurst=5
+
+      [Service]
+      Restart=on-failure
+      RestartSec=5s
+  register: bootstrap_ssh_systemd_override
+
+- name: Reload systemd when SSH auto-recovery changed
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: bootstrap_ssh_systemd_override.changed
+
 - name: Install SSH hardening drop-in
   ansible.builtin.copy:
     src: sshd-hardening.conf
@@ -8,8 +37,18 @@
     mode: "0644"
   register: bootstrap_ssh_hardening_dropin
 
-- name: Restart ssh when hardening changed
+- name: Validate effective SSH server configuration
+  ansible.builtin.command: /usr/sbin/sshd -t
+  changed_when: false
+  when: bootstrap_ssh_hardening_dropin.changed
+
+- name: Reload ssh when hardening changed
   ansible.builtin.service:
     name: ssh
-    state: restarted
+    state: reloaded
+  when: bootstrap_ssh_hardening_dropin.changed
+
+- name: Confirm SSH remains reachable after hardening
+  ansible.builtin.wait_for_connection:
+    timeout: 30
   when: bootstrap_ssh_hardening_dropin.changed
