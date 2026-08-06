@@ -6,6 +6,20 @@
 2. ejecutar `apply-runtime.yml` con usuario admin
 3. entregar el host al repo de deploy correspondiente
 
+## Bootstrap local en Raspberry Pi
+
+Para bootstrapear una Raspberry Pi que no tiene IP pública, instalar primero un
+runner de GitHub Actions en ella con las etiquetas `self-hosted`, `linux` y
+`raspberry-pi`. El usuario que ejecuta el runner debe tener `sudo` sin
+contraseña.
+
+En Infisical, configurar `ADMIN_SSH_AUTHORIZED_KEY` con la clave pública que se
+instalará para el usuario admin y `TAILSCALE_AUTH_KEY` para la primera unión a
+la tailnet. Luego ejecutar `bootstrap-self-hosted.yml` desde GitHub Actions.
+
+El workflow obtiene los secretos por OIDC y ejecuta bootstrap y runtime contra
+`localhost`; no usa `PROD_HOST`, IP pública ni SSH remoto.
+
 ## Debug OIDC Infisical
 
 Usar `debug-infisical-oidc.yml` cuando falle la carga de secretos desde GitHub Actions hacia Infisical.

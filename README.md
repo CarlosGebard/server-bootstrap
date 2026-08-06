@@ -21,6 +21,7 @@ No contiene:
 - `ansible/playbooks/host-baseline.yml`
 - `.github/workflows/bootstrap-host.yml`
 - `.github/workflows/apply-runtime.yml`
+- `.github/workflows/bootstrap-self-hosted.yml`
 - `tests/ansible/`
 
 ## Flujo operativo
@@ -32,6 +33,11 @@ No contiene:
 2. `apply-runtime.yml`
    - acceso como usuario admin
    - Docker, Tailscale, Alloy package y paths base
+
+3. `bootstrap-self-hosted.yml`
+   - se ejecuta localmente en una Raspberry Pi con runner self-hosted
+   - obtiene los secretos desde Infisical por OIDC
+   - aplica bootstrap y runtime sin IP ni SSH remoto
 
 ## Configuracion base
 

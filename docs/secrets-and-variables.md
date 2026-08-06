@@ -22,6 +22,23 @@
 - `SERVER_HOST` IP o hostname Tailscale del servidor para `provision-tailscale-host.yml`
 - `TAILSCALE_SERVER_HOST` IP o hostname Tailscale del servidor para `provision-tailscale-host.yml`
 - `TAILSCALE_HOSTNAME` opcional
+- `ADMIN_SSH_AUTHORIZED_KEY` clave pública SSH del usuario admin para el primer
+  bootstrap local en la Raspberry Pi
+
+## Bootstrap local en Raspberry Pi
+
+`bootstrap-self-hosted.yml` usa un runner instalado en la propia Raspberry Pi.
+No requiere `PROD_HOST` ni credenciales SSH para acceder al host. El runner debe
+tener las etiquetas `self-hosted`, `linux` y `raspberry-pi`, y ejecutarse con un
+usuario que pueda usar `sudo` sin contraseña.
+
+Secretos requeridos en la ruta de Infisical:
+
+- `ADMIN_SSH_AUTHORIZED_KEY`
+- `TAILSCALE_AUTH_KEY`
+
+El workflow usa OIDC con las mismas variables `INFISICAL_*` del entorno
+`production` y ejecuta ambos playbooks contra `localhost`.
 
 ## Provision por Tailscale
 

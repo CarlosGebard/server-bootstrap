@@ -51,6 +51,20 @@
     - bootstrap_root_authorized_keys_stat.stat.exists
     - not bootstrap_admin_authorized_keys_stat.stat.exists
 
+- name: Seed admin authorized key from bootstrap secret when absent
+  ansible.builtin.copy:
+    content: "{{ bootstrap.admin_authorized_key | trim }}\n"
+    dest: "/home/{{ host.admin_user }}/.ssh/authorized_keys"
+    owner: "{{ host.admin_user }}"
+    group: "{{ host.admin_user }}"
+    mode: "0600"
+    force: false
+  no_log: true
+  when:
+    - bootstrap_admin_user_getent.ansible_facts.getent_passwd[host.admin_user] is defined
+    - bootstrap.admin_authorized_key | trim | length > 0
+    - not bootstrap_admin_authorized_keys_stat.stat.exists
+
 - name: Re-check admin authorized keys file
   ansible.builtin.stat:
     path: "/home/{{ host.admin_user }}/.ssh/authorized_keys"
@@ -71,5 +85,6 @@
       - bootstrap_admin_authorized_keys_final_stat.stat.exists
     fail_msg: >-
       Refusing to harden SSH because /home/{{ host.admin_user }}/.ssh/authorized_keys
-      does not exist. Seed the admin key first or allow bootstrap.copy_root_authorized_keys.
+      does not exist. Configure ADMIN_SSH_AUTHORIZED_KEY or allow
+      bootstrap.copy_root_authorized_keys.
   when: not ansible_check_mode

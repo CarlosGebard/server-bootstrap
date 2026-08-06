@@ -5,6 +5,7 @@ host:
 
 bootstrap:
   copy_root_authorized_keys: true
+  admin_authorized_key: "{{ lookup('ansible.builtin.env', 'ADMIN_SSH_AUTHORIZED_KEY') | default('', true) }}"
 
 ssh:
   port: 22

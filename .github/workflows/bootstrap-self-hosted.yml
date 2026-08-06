@@ -1,0 +1,90 @@
+name: Bootstrap Self-Hosted Raspberry Pi
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Git ref to apply
+        required: true
+        default: main
+
+concurrency:
+  group: self-hosted-raspberry-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Bootstrap local Raspberry Pi from Infisical secrets
+    runs-on: [self-hosted, linux, raspberry-pi]
+    timeout-minutes: 35
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Validate Infisical OIDC configuration
+        env:
+          INFISICAL_IDENTITY_ID: ${{ vars.INFISICAL_IDENTITY_ID }}
+          INFISICAL_PROJECT_SLUG: ${{ vars.INFISICAL_PROJECT_SLUG }}
+          INFISICAL_ENV_SLUG: ${{ vars.INFISICAL_ENV_SLUG }}
+          INFISICAL_SECRET_PATH: ${{ vars.INFISICAL_SECRET_PATH }}
+        run: |
+          set -euo pipefail
+
+          [[ -n "$INFISICAL_IDENTITY_ID" ]] || { echo "Missing INFISICAL_IDENTITY_ID"; exit 1; }
+          [[ -n "$INFISICAL_PROJECT_SLUG" ]] || { echo "Missing INFISICAL_PROJECT_SLUG"; exit 1; }
+          [[ -n "$INFISICAL_ENV_SLUG" ]] || { echo "Missing INFISICAL_ENV_SLUG"; exit 1; }
+          [[ "$INFISICAL_SECRET_PATH" = /* ]] || { echo "INFISICAL_SECRET_PATH must start with /"; exit 1; }
+
+      - name: Pull bootstrap secrets from Infisical via OIDC
+        uses: Infisical/secrets-action@v1.0.10
+        with:
+          method: "oidc"
+          identity-id: "${{ vars.INFISICAL_IDENTITY_ID }}"
+          project-slug: "${{ vars.INFISICAL_PROJECT_SLUG }}"
+          env-slug: "${{ vars.INFISICAL_ENV_SLUG }}"
+          secret-path: "${{ vars.INFISICAL_SECRET_PATH }}"
+
+      - name: Assert required first-bootstrap secrets are present
+        env:
+          ADMIN_SSH_AUTHORIZED_KEY: ${{ env.ADMIN_SSH_AUTHORIZED_KEY }}
+          TAILSCALE_AUTH_KEY: ${{ env.TAILSCALE_AUTH_KEY }}
+        run: |
+          set -euo pipefail
+
+          [[ -n "$ADMIN_SSH_AUTHORIZED_KEY" ]] || { echo "Missing ADMIN_SSH_AUTHORIZED_KEY"; exit 1; }
+          [[ -n "$TAILSCALE_AUTH_KEY" ]] || { echo "Missing TAILSCALE_AUTH_KEY"; exit 1; }
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible
+        run: python -m pip install --upgrade pip ansible-core
+
+      - name: Validate Ansible playbooks
+        run: make ansible-check
+
+      - name: Require passwordless sudo on the runner
+        run: sudo -n true
+
+      - name: Bootstrap local host
+        run: |
+          cd ansible
+          ansible-playbook -i localhost, -c local playbooks/bootstrap.yml
+
+      - name: Apply local host baseline
+        run: |
+          cd ansible
+          ansible-playbook -i localhost, -c local playbooks/host-baseline.yml
