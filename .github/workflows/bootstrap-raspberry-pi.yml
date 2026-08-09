@@ -65,19 +65,19 @@ jobs:
           [[ -n "$ADMIN_SSH_AUTHORIZED_KEY" ]] || { echo "Missing ADMIN_SSH_AUTHORIZED_KEY"; exit 1; }
           [[ -n "$TAILSCALE_AUTH_KEY" ]] || { echo "Missing TAILSCALE_AUTH_KEY"; exit 1; }
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Require passwordless sudo on the runner
+        run: sudo -n true
 
-      - name: Install Ansible
-        run: python -m pip install --upgrade pip ansible-core
+      - name: Set up native Python and Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes python3-venv
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip ansible-core
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Validate Ansible playbooks
         run: make ansible-check
-
-      - name: Require passwordless sudo on the runner
-        run: sudo -n true
 
       - name: Bootstrap local host
         run: |

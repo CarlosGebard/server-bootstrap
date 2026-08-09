@@ -57,15 +57,33 @@ jobs:
       - name: Verify action ran
         run: echo "Infisical action finished"
 
-      - name: Assert expected secrets are available
+      - name: Assert bootstrap secrets are available
         env:
+          ADMIN_SSH_AUTHORIZED_KEY: ${{ env.ADMIN_SSH_AUTHORIZED_KEY }}
           PROD_HOST: ${{ env.PROD_HOST }}
+          PROD_SSH_KNOWN_HOSTS: ${{ env.PROD_SSH_KNOWN_HOSTS }}
           PROD_SSH_PRIVATE_KEY: ${{ env.PROD_SSH_PRIVATE_KEY }}
+          PROD_SSH_USER: ${{ env.PROD_SSH_USER }}
+          TAILSCALE_AUTH_KEY: ${{ env.TAILSCALE_AUTH_KEY }}
           INFISICAL_SECRET_PATH: ${{ vars.INFISICAL_SECRET_PATH }}
         run: |
           set -euo pipefail
 
+          [[ -n "${ADMIN_SSH_AUTHORIZED_KEY}" ]] || { echo "Missing ADMIN_SSH_AUTHORIZED_KEY after Infisical fetch from ${INFISICAL_SECRET_PATH}"; exit 1; }
           [[ -n "${PROD_HOST}" ]] || { echo "Missing PROD_HOST after Infisical fetch from ${INFISICAL_SECRET_PATH}"; exit 1; }
           [[ -n "${PROD_SSH_PRIVATE_KEY}" ]] || { echo "Missing PROD_SSH_PRIVATE_KEY after Infisical fetch from ${INFISICAL_SECRET_PATH}"; exit 1; }
+          [[ -n "${TAILSCALE_AUTH_KEY}" ]] || { echo "Missing TAILSCALE_AUTH_KEY after Infisical fetch from ${INFISICAL_SECRET_PATH}"; exit 1; }
+
+          if [[ -n "${PROD_SSH_KNOWN_HOSTS}" ]]; then
+            echo "PROD_SSH_KNOWN_HOSTS configured"
+          else
+            echo "PROD_SSH_KNOWN_HOSTS not configured; workflows will use ssh-keyscan"
+          fi
+
+          if [[ -n "${PROD_SSH_USER}" ]]; then
+            echo "PROD_SSH_USER configured"
+          else
+            echo "PROD_SSH_USER not configured; remote bootstrap defaults to root"
+          fi
 
           echo "Infisical OIDC debug completed successfully."

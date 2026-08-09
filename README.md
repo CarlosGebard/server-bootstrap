@@ -1,50 +1,20 @@
 # server-bootstrap
 
-Repositorio genérico para preparar un VPS o servidor Linux base.
+Prepara servidores Debian o Ubuntu con usuario admin, SSH seguro, firewall,
+Docker, Tailscale, Alloy y el layout base de `/srv`.
 
-Responsabilidad:
-- bootstrap inicial del host
-- baseline reusable del servidor
-- Docker
-- Tailscale
-- Alloy como servicio host-level
-- layout base de `/srv/...`
+## Actions
 
-No contiene:
-- Docker Compose de una aplicación concreta
-- configuración específica de Alloy para un stack
-- deploy de servicios de negocio
+| Action | Uso |
+| --- | --- |
+| `bootstrap-host.yml` | Bootstrap completo de un servidor remoto por SSH. |
+| `bootstrap-raspberry-pi.yml` | Bootstrap completo de una Raspberry Pi Debian desde su runner local. |
+| `debug-infisical-oidc.yml` | Comprueba OIDC y los secretos compartidos de Infisical. |
 
-## Layout
+Todos los deploys obtienen secretos desde Infisical. La configuración y los
+secretos necesarios están documentados en [docs/secrets-and-variables.md](docs/secrets-and-variables.md).
 
-- `ansible/playbooks/bootstrap.yml`
-- `ansible/playbooks/host-baseline.yml`
-- `.github/workflows/bootstrap-host.yml`
-- `.github/workflows/apply-runtime.yml`
-- `.github/workflows/bootstrap-raspberry-pi.yml`
-- `tests/ansible/`
-
-## Flujo operativo
-
-1. `bootstrap-host.yml`
-   - acceso inicial como `root`
-   - usuario admin, hardening, firewall, swap
-
-2. `apply-runtime.yml`
-   - acceso como usuario admin
-   - Docker, Tailscale, Alloy package y paths base
-
-3. `bootstrap-raspberry-pi.yml`
-   - se ejecuta localmente en una Raspberry Pi con runner self-hosted
-   - obtiene los secretos desde Infisical por OIDC
-   - aplica bootstrap y runtime sin IP ni SSH remoto
-
-## Configuracion base
-
-- el usuario admin que crea el bootstrap se define en `ansible/inventories/production/group_vars/base.yml` bajo `host.admin_user`
-- el usuario SSH inicial del workflow `bootstrap-host.yml` puede venir desde `PROD_SSH_USER`; si no se define, el workflow usa `root`
-
-## Validación local
+Validación local:
 
 ```bash
 make ansible-check

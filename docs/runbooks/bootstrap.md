@@ -3,7 +3,7 @@
 ## Flujo
 
 1. ejecutar `bootstrap-host.yml` con acceso inicial `root` o con `PROD_SSH_USER` si el proveedor exige otro usuario base como `ubuntu`
-2. ejecutar `apply-runtime.yml` con usuario admin
+2. el workflow aplica bootstrap y baseline completo en la misma ejecución
 3. entregar el host al repo de deploy correspondiente
 
 ## Bootstrap local en Raspberry Pi
@@ -20,6 +20,10 @@ la tailnet. Luego ejecutar `bootstrap-raspberry-pi.yml` desde GitHub Actions.
 El workflow obtiene los secretos por OIDC y ejecuta bootstrap y runtime contra
 `localhost`; no usa `PROD_HOST`, IP pública ni SSH remoto.
 
+En Debian 13 el workflow usa el Python nativo dentro de un entorno virtual e
+instala `python3-venv` automáticamente. El runner necesita salida a APT y PyPI
+durante el bootstrap.
+
 ## Debug OIDC Infisical
 
 Usar `debug-infisical-oidc.yml` cuando falle la carga de secretos desde GitHub Actions hacia Infisical.
@@ -30,7 +34,7 @@ Revisar en los logs:
 
 - el paso de validacion debe confirmar que existen `INFISICAL_IDENTITY_ID`, `INFISICAL_PROJECT_SLUG`, `INFISICAL_ENV_SLUG` e `INFISICAL_SECRET_PATH`
 - `INFISICAL_SECRET_PATH` debe apuntar a la carpeta correcta dentro del proyecto
-- el paso `Infisical/secrets-action` debe completar y el assert final debe encontrar `PROD_HOST` y `PROD_SSH_PRIVATE_KEY`
+- el paso `Infisical/secrets-action` debe completar y el assert final debe encontrar `ADMIN_SSH_AUTHORIZED_KEY`, `PROD_HOST`, `PROD_SSH_PRIVATE_KEY` y `TAILSCALE_AUTH_KEY`
 
 ## Contrato entregado
 

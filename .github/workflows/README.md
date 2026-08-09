@@ -1,8 +1,5 @@
 # GitHub Actions Workflows
 
-- `bootstrap-host.yml`: bootstrap inicial del host, manual
-- `apply-runtime.yml`: baseline reusable del host, manual
-- `provision-tailscale-host.yml`: bootstrap y baseline en una sola ejecucion usando Tailscale
-- `debug-infisical-oidc.yml`: smoke test manual del fetch OIDC con el action oficial de Infisical
-- `bootstrap-raspberry-pi.yml`: bootstrap y baseline local para una Raspberry Pi
-  que ejecuta el runner de GitHub Actions.
+- `bootstrap-host.yml`: prepara un servidor remoto por SSH y aplica su baseline completo.
+- `bootstrap-raspberry-pi.yml`: prepara una Raspberry Pi Debian desde su runner local.
+- `debug-infisical-oidc.yml`: valida OIDC y los secretos compartidos en Infisical.
