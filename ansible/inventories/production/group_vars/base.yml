@@ -1,6 +1,5 @@
 host:
   admin_user: carlos
-  ubuntu_release: noble
   private_access_only: true
 
 bootstrap:

@@ -1,4 +1,4 @@
-name: Bootstrap Self-Hosted Raspberry Pi
+name: Bootstrap Raspberry Pi
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ on:
         default: main
 
 concurrency:
-  group: self-hosted-raspberry-bootstrap
+  group: raspberry-pi-bootstrap
   cancel-in-progress: false
 
 jobs:

@@ -8,7 +8,7 @@ obteniendo sus secretos desde Infisical.
 
 ## Decisión
 
-Se ejecutará `bootstrap-self-hosted.yml` en un runner de GitHub Actions
+Se ejecutará `bootstrap-raspberry-pi.yml` en un runner de GitHub Actions
 instalado en la propia Raspberry Pi. El workflow usa OIDC para obtener secretos
 de Infisical y ejecuta ambos playbooks Ansible con conexión local.
 

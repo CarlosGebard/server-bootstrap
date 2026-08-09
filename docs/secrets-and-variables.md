@@ -27,7 +27,7 @@
 
 ## Bootstrap local en Raspberry Pi
 
-`bootstrap-self-hosted.yml` usa un runner instalado en la propia Raspberry Pi.
+`bootstrap-raspberry-pi.yml` usa un runner instalado en la propia Raspberry Pi.
 No requiere `PROD_HOST` ni credenciales SSH para acceder al host. El runner debe
 tener las etiquetas `self-hosted`, `linux` y `raspberry-pi`, y ejecutarse con un
 usuario que pueda usar `sudo` sin contraseña.

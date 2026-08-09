@@ -1,4 +1,17 @@
 ---
+- name: Require Debian-family hosts for the Docker APT role
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution in ['Debian', 'Ubuntu']
+    fail_msg: >-
+      The Docker role supports Debian and Ubuntu only. Detected
+      {{ ansible_distribution }} {{ ansible_distribution_version | default('') }}.
+
+- name: Resolve Docker APT distribution and release
+  ansible.builtin.set_fact:
+    docker_apt_distribution: "{{ ansible_distribution | lower }}"
+    docker_apt_release: "{{ ansible_distribution_release }}"
+
 - name: Ensure Docker APT keyring directory exists
   ansible.builtin.file:
     path: /etc/apt/keyrings
@@ -9,7 +22,7 @@
 
 - name: Download Docker official GPG key
   ansible.builtin.get_url:
-    url: https://download.docker.com/linux/ubuntu/gpg
+    url: "https://download.docker.com/linux/{{ docker_apt_distribution }}/gpg"
     dest: /etc/apt/keyrings/docker.asc
     owner: root
     group: root
@@ -20,8 +33,8 @@
     repo: >-
       deb [arch={{ docker_apt_arch_map[ansible_architecture] | default('amd64') }}
       signed-by=/etc/apt/keyrings/docker.asc]
-      https://download.docker.com/linux/ubuntu
-      {{ host.ubuntu_release }} stable
+      https://download.docker.com/linux/{{ docker_apt_distribution }}
+      {{ docker_apt_release }} stable
     filename: docker
     state: present
 

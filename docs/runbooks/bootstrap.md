@@ -15,7 +15,7 @@ contraseña.
 
 En Infisical, configurar `ADMIN_SSH_AUTHORIZED_KEY` con la clave pública que se
 instalará para el usuario admin y `TAILSCALE_AUTH_KEY` para la primera unión a
-la tailnet. Luego ejecutar `bootstrap-self-hosted.yml` desde GitHub Actions.
+la tailnet. Luego ejecutar `bootstrap-raspberry-pi.yml` desde GitHub Actions.
 
 El workflow obtiene los secretos por OIDC y ejecuta bootstrap y runtime contra
 `localhost`; no usa `PROD_HOST`, IP pública ni SSH remoto.

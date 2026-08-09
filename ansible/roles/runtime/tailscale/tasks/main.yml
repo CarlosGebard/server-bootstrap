@@ -1,16 +1,17 @@
 ---
-- name: Resolve Tailscale Ubuntu release codename
-  ansible.builtin.set_fact:
-    tailscale_ubuntu_release: "{{ ansible_distribution_release | default(host.ubuntu_release, true) }}"
-  when: tailscale.enabled
-
-- name: Require Ubuntu hosts for the Tailscale APT role
+- name: Require Debian-family hosts for the Tailscale APT role
   ansible.builtin.assert:
     that:
-      - ansible_distribution == "Ubuntu"
+      - ansible_distribution in ['Debian', 'Ubuntu']
     fail_msg: >-
-      The Tailscale role currently supports Ubuntu only. Detected
+      The Tailscale role supports Debian and Ubuntu only. Detected
       {{ ansible_distribution }} {{ ansible_distribution_version | default('') }}.
+  when: tailscale.enabled
+
+- name: Resolve Tailscale APT distribution and release
+  ansible.builtin.set_fact:
+    tailscale_apt_distribution: "{{ ansible_distribution | lower }}"
+    tailscale_apt_release: "{{ ansible_distribution_release }}"
   when: tailscale.enabled
 
 - name: Ensure Tailscale keyring directory exists
@@ -24,7 +25,7 @@
 
 - name: Install Tailscale archive key
   ansible.builtin.get_url:
-    url: "https://pkgs.tailscale.com/{{ tailscale.track }}/ubuntu/{{ tailscale_ubuntu_release }}.noarmor.gpg"
+    url: "https://pkgs.tailscale.com/{{ tailscale.track }}/{{ tailscale_apt_distribution }}/{{ tailscale_apt_release }}.noarmor.gpg"
     dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
     owner: root
     group: root
@@ -33,7 +34,7 @@
 
 - name: Install Tailscale repository definition
   ansible.builtin.get_url:
-    url: "https://pkgs.tailscale.com/{{ tailscale.track }}/ubuntu/{{ tailscale_ubuntu_release }}.tailscale-keyring.list"
+    url: "https://pkgs.tailscale.com/{{ tailscale.track }}/{{ tailscale_apt_distribution }}/{{ tailscale_apt_release }}.tailscale-keyring.list"
     dest: /etc/apt/sources.list.d/tailscale.list
     owner: root
     group: root
@@ -60,7 +61,7 @@
       - "'Candidate: (none)' not in tailscale_package_policy.stdout"
     fail_msg: >-
       Tailscale package is not available from APT after configuring the repo
-      for Ubuntu {{ tailscale_ubuntu_release }}. Review the host release,
+      for {{ tailscale_apt_distribution }} {{ tailscale_apt_release }}. Review the host release,
       /etc/apt/sources.list.d/tailscale.list, and apt-cache policy tailscale.
   when: tailscale.enabled
 
