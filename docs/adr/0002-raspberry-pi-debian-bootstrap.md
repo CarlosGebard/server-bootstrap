@@ -11,6 +11,7 @@ Ubuntu deben conservarse.
 El workflow local se denomina `bootstrap-raspberry-pi.yml`. Los roles de Docker
 y Tailscale detectan la distribución y el codename mediante facts de Ansible y
 admiten Debian y Ubuntu. Cada distribución usa su repositorio APT oficial.
+Los paquetes de bootstrap exclusivos de Ubuntu se instalan solo en Ubuntu.
 
 ## Consecuencias
 

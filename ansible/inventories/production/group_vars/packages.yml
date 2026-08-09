@@ -12,10 +12,11 @@ packages:
     - python3
     - qemu-guest-agent
     - rsync
-    - software-properties-common
     - sudo
     - unattended-upgrades
     - wget
+  ubuntu:
+    - software-properties-common
   security:
     - fail2ban
     - ufw

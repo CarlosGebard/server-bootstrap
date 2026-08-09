@@ -5,3 +5,12 @@
     state: present
     update_cache: true
     cache_valid_time: 3600
+
+- name: Install Ubuntu-specific bootstrap packages
+  ansible.builtin.apt:
+    name: "{{ packages.ubuntu | default([]) }}"
+    state: present
+    update_cache: false
+  when:
+    - ansible_distribution == "Ubuntu"
+    - packages.ubuntu | default([]) | length > 0
